@@ -43,10 +43,11 @@ namespace Moneybox.App.Tests.Features
             };
         }
 
-        [Test]
-        public void Execute_WhenAmountIsInvalid_ThrowsException()
+        [TestCase(-1)]
+        [TestCase(0)]
+        public void Execute_WhenAmountIsInvalid_ThrowsException(decimal invalidAmount)
         {
-            Assert.Throws<InvalidOperationException>(() => _transferMoney.Execute(_fromAccount.Id, _toAccount.Id, -10m));
+            Assert.Throws<InvalidOperationException>(() => _transferMoney.Execute(_fromAccount.Id, _toAccount.Id, invalidAmount));
         }
 
         [Test]
