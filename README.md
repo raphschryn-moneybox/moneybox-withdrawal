@@ -1,5 +1,53 @@
 # Moneybox Money Withdrawal
 
+## Code Explanation
+
+- **PayInLimit Property:**  
+  In `Domain/Account.cs`, the `PayInLimit` property has been changed from a `const` to a standard variable with a private setter. This allows each `Account` to have different pay-in limits if needed. Its default value is set to the previous constant value.
+
+- **Encapsulated Balance Changes:**  
+  Methods to handle balance changes (such as `Withdraw`, `PayIn`, and related validations) have been implemented directly within the `Account` domain model.  
+  This allows sensitive properties like `Balance` to have private setters, preserving the integrity of account state.
+
+- **Notification Timing:**  
+  Notifications (e.g., low funds, approaching pay-in limit) are now triggered *after* the database update, ensuring customers are only notified once their account state has successfully changed.  
+  This prevents confusing notifications if a database error occurs.
+
+- **Amount Validation:**  
+  Validation has been added for the `amount` parameter in both service methods (`TransferMoney` and `WithdrawMoney`) to reject invalid transactions early.
+
+- **Mocking Strategy:**  
+  Unit tests use **NSubstitute** instead of **Moq** due to recent controversies around Moq collecting telemetry data.  
+
+- **Error Handling for Missing Accounts:**  
+  The code assumes that `GetAccountById(Guid accountId)` will throw an exception if the account does not exist.  
+  If this is not the case, explicit null checks should be added.
+
+## Nice to Have (Out of Scope)
+
+- If a money transfer fails because the recipient’s account would exceed its pay-in limit, currently **only the sender is notified** via an exception.  
+  Ideally, the recipient should also be notified.
+
+- Transfers should be wrapped in a **database transaction** to prevent money from disappearing (or magically being created) if an error occurs midway.
+
+- **Input Validation:**  
+  Integrating `FluentValidation` for cleaner, reusable validation rules would improve input handling.
+
+- **Framework Upgrade:**  
+  Upgrade the solution from **.NET 5** to **.NET 9**.
+
+- **Account Reset:**  
+  Implement scheduled resets (daily, weekly, or monthly) for `PaidIn` and `Withdrawn` properties.
+
+- **Overdraft Functionality:**  
+  Extend the `Account` model to support controlled overdrafts.
+
+- **Further Integration Tests:**  
+  Add integration tests covering sequences of operations, such as **withdraw then transfer**, to verify consistent behavior over multiple actions.
+
+
+# Task
+
 The solution contains a .NET core library (Moneybox.App) which is structured into the following 3 folders:
 
 * Domain - this contains the domain models for a user and an account, and a notification service.
