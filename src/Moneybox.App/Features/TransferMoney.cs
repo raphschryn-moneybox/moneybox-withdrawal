@@ -1,55 +1,46 @@
 ﻿using Moneybox.App.DataAccess;
 using Moneybox.App.Domain.Services;
+using Moneybox.App.Features.Validators;
 using System;
 
 namespace Moneybox.App.Features
 {
     public class TransferMoney
     {
-        private IAccountRepository accountRepository;
-        private INotificationService notificationService;
+        private readonly IAccountRepository _accountRepository;
+        private readonly INotificationService _notificationService;
 
         public TransferMoney(IAccountRepository accountRepository, INotificationService notificationService)
         {
-            this.accountRepository = accountRepository;
-            this.notificationService = notificationService;
+            _accountRepository = accountRepository;
+            _notificationService = notificationService;
         }
 
         public void Execute(Guid fromAccountId, Guid toAccountId, decimal amount)
         {
-            var from = this.accountRepository.GetAccountById(fromAccountId);
-            var to = this.accountRepository.GetAccountById(toAccountId);
-
-            var fromBalance = from.Balance - amount;
-            if (fromBalance < 0m)
+            if (!AmountValidator.Validate(amount, out var message))
             {
-                throw new InvalidOperationException("Insufficient funds to make transfer");
+                throw new InvalidOperationException(message);
             }
 
-            if (fromBalance < 500m)
+            var from = _accountRepository.GetAccountById(fromAccountId);
+            var to = _accountRepository.GetAccountById(toAccountId);
+
+            from.TransferTo(to, amount);
+
+            // TODO (out of scope): db transaction
+            _accountRepository.Update(from);
+            _accountRepository.Update(to);
+
+            if (from.IsLowBalance())
             {
-                this.notificationService.NotifyFundsLow(from.User.Email);
+                _notificationService.NotifyFundsLow(from.User.Email);
             }
 
-            var paidIn = to.PaidIn + amount;
-            if (paidIn > Account.PayInLimit)
+            if (to.IsApproachingPayInLimit())
             {
-                throw new InvalidOperationException("Account pay in limit reached");
+                _notificationService.NotifyApproachingPayInLimit(to.User.Email);
             }
-
-            if (Account.PayInLimit - paidIn < 500m)
-            {
-                this.notificationService.NotifyApproachingPayInLimit(to.User.Email);
-            }
-
-            from.Balance = from.Balance - amount;
-            from.Withdrawn = from.Withdrawn - amount;
-
-            to.Balance = to.Balance + amount;
-            to.PaidIn = to.PaidIn + amount;
-
-            this.accountRepository.Update(from);
-            this.accountRepository.Update(to);
         }
     }
 }
