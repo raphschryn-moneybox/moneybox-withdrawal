@@ -2,6 +2,7 @@
 using Moneybox.App.Domain;
 using Moneybox.App.Domain.Services;
 using Moneybox.App.Features;
+using Moneybox.App.Tests.TestHelpers;
 using NSubstitute;
 using NUnit.Framework;
 using System;
@@ -24,23 +25,8 @@ namespace Moneybox.App.Tests.Features
 
             _transferMoney = new TransferMoney(_accountRepository, _notificationService);
 
-            _fromAccount = new Account
-            {
-                Id = Guid.NewGuid(),
-                Balance = 1000m,
-                Withdrawn = 0m,
-                PaidIn = 0m,
-                User = new User { Email = "from@test.com" }
-            };
-
-            _toAccount = new Account
-            {
-                Id = Guid.NewGuid(),
-                Balance = 500m,
-                Withdrawn = 0m,
-                PaidIn = 0m,
-                User = new User { Email = "to@test.com" }
-            };
+            _fromAccount = AccountTestHelper.CreateAccount();
+            _toAccount = AccountTestHelper.CreateAccount(balance: 500m);
         }
 
         [TestCase(-1)]
@@ -53,14 +39,11 @@ namespace Moneybox.App.Tests.Features
         [Test]
         public void Execute_WhenTransferIsValid_UpdatesAccounts()
         {
-            // Arrange
             _accountRepository.GetAccountById(_fromAccount.Id).Returns(_fromAccount);
             _accountRepository.GetAccountById(_toAccount.Id).Returns(_toAccount);
 
-            // Act
             _transferMoney.Execute(_fromAccount.Id, _toAccount.Id, 200m);
 
-            // Assert
             _accountRepository.Received(1).Update(_fromAccount);
             _accountRepository.Received(1).Update(_toAccount);
         }
@@ -68,31 +51,27 @@ namespace Moneybox.App.Tests.Features
         [Test]
         public void Execute_WhenLowBalance_NotifiesUser()
         {
-            // Arrange
-            _fromAccount.Balance = 600m;
-            _accountRepository.GetAccountById(_fromAccount.Id).Returns(_fromAccount);
+            var fromAccount = AccountTestHelper.CreateAccount(balance: 600m);
+
+            _accountRepository.GetAccountById(fromAccount.Id).Returns(fromAccount);
             _accountRepository.GetAccountById(_toAccount.Id).Returns(_toAccount);
 
-            // Act
-            _transferMoney.Execute(_fromAccount.Id, _toAccount.Id, 200m);
+            _transferMoney.Execute(fromAccount.Id, _toAccount.Id, 200m);
 
-            // Assert
-            _notificationService.Received(1).NotifyFundsLow(_fromAccount.User.Email);
+            _notificationService.Received(1).NotifyFundsLow(fromAccount.User.Email);
         }
 
         [Test]
         public void Execute_WhenApproachingPayInLimit_NotifiesReceiver()
         {
-            // Arrange
-            _toAccount.PaidIn = 3600m;
+            var toAccount = AccountTestHelper.CreateAccount(paidIn: 3600m);
+
             _accountRepository.GetAccountById(_fromAccount.Id).Returns(_fromAccount);
-            _accountRepository.GetAccountById(_toAccount.Id).Returns(_toAccount);
+            _accountRepository.GetAccountById(toAccount.Id).Returns(toAccount);
 
-            // Act
-            _transferMoney.Execute(_fromAccount.Id, _toAccount.Id, 200m);
+            _transferMoney.Execute(_fromAccount.Id, toAccount.Id, 200m);
 
-            // Assert
-            _notificationService.Received(1).NotifyApproachingPayInLimit(_toAccount.User.Email);
+            _notificationService.Received(1).NotifyApproachingPayInLimit(toAccount.User.Email);
         }
     }
 }

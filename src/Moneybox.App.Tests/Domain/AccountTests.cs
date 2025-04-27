@@ -1,4 +1,5 @@
 ﻿using Moneybox.App.Domain;
+using Moneybox.App.Tests.TestHelpers;
 using NUnit.Framework;
 using System;
 
@@ -6,27 +7,14 @@ namespace Moneybox.App.Tests.Domain
 {
     public class AccountTests
     {
-        private Account _from;
-        private Account _to;
+        private Account _fromAccount;
+        private Account _toAccount;
 
         [SetUp]
         public void Setup()
         {
-            _from = new Account
-            {
-                Id = Guid.NewGuid(),
-                Balance = 1000m,
-                Withdrawn = 0m,
-                PaidIn = 0m
-            };
-
-            _to = new Account
-            {
-                Id = Guid.NewGuid(),
-                Balance = 500m,
-                Withdrawn = 0m,
-                PaidIn = 0m
-            };
+            _fromAccount = AccountTestHelper.CreateAccount();
+            _toAccount = AccountTestHelper.CreateAccount(balance: 500m);
         }
 
         [Test]
@@ -34,12 +22,12 @@ namespace Moneybox.App.Tests.Domain
         {
             var amount = 200m;
 
-            _from.TransferTo(_to, amount);
+            _fromAccount.TransferTo(_toAccount, amount);
 
-            Assert.AreEqual(800m, _from.Balance);
-            Assert.AreEqual(200m, _from.Withdrawn);
-            Assert.AreEqual(700m, _to.Balance);
-            Assert.AreEqual(200m, _to.PaidIn);
+            Assert.AreEqual(800m, _fromAccount.Balance);
+            Assert.AreEqual(200m, _fromAccount.Withdrawn);
+            Assert.AreEqual(700m, _toAccount.Balance);
+            Assert.AreEqual(200m, _toAccount.PaidIn);
         }
 
         [Test]
@@ -47,26 +35,28 @@ namespace Moneybox.App.Tests.Domain
         {
             var amount = 2000m;
 
-            var ex = Assert.Throws<InvalidOperationException>(() => _from.TransferTo(_to, amount));
+            var ex = Assert.Throws<InvalidOperationException>(() => _fromAccount.TransferTo(_toAccount, amount));
+            
             Assert.That(ex.Message, Is.EqualTo("Insufficient funds to make transfer."));
         }
 
         [Test]
         public void TransferTo_ShouldThrow_WhenRecipientExceedsPayInLimit()
         {
-            _to.PaidIn = 3900m;
+            var toAccount = AccountTestHelper.CreateAccount(paidIn: 3900m);
             var amount = 200m;
 
-            var ex = Assert.Throws<InvalidOperationException>(() => _from.TransferTo(_to, amount));
+            var ex = Assert.Throws<InvalidOperationException>(() => _fromAccount.TransferTo(toAccount, amount));
+            
             Assert.That(ex.Message, Is.EqualTo("Account pay in limit reached."));
         }
 
         [Test]
         public void IsLowBalance_ShouldReturnTrue_WhenBalanceBelow500()
         {
-            _from.Balance = 499m;
+            var fromAccount = AccountTestHelper.CreateAccount(balance: 499m);
 
-            var result = _from.IsLowBalance();
+            var result = fromAccount.IsLowBalance();
 
             Assert.IsTrue(result);
         }
@@ -74,9 +64,9 @@ namespace Moneybox.App.Tests.Domain
         [Test]
         public void IsLowBalance_ShouldReturnFalse_WhenBalanceAbove500()
         {
-            _from.Balance = 501m;
+            var fromAccount = AccountTestHelper.CreateAccount(balance: 501m);
 
-            var result = _from.IsLowBalance();
+            var result = fromAccount.IsLowBalance();
 
             Assert.IsFalse(result);
         }
@@ -84,9 +74,9 @@ namespace Moneybox.App.Tests.Domain
         [Test]
         public void IsApproachingPayInLimit_ShouldReturnTrue_WhenLessThan500LeftToPayIn()
         {
-            _to.PaidIn = 3600m;
+            var toAccount = AccountTestHelper.CreateAccount(paidIn: 3600m);
 
-            var result = _to.IsApproachingPayInLimit();
+            var result = toAccount.IsApproachingPayInLimit();
 
             Assert.IsTrue(result);
         }
@@ -94,9 +84,9 @@ namespace Moneybox.App.Tests.Domain
         [Test]
         public void IsApproachingPayInLimit_ShouldReturnFalse_WhenMoreThan500LeftToPayIn()
         {
-            _to.PaidIn = 2000m;
+            var toAccount = AccountTestHelper.CreateAccount(paidIn: 2000m);
 
-            var result = _to.IsApproachingPayInLimit();
+            var result = toAccount.IsApproachingPayInLimit();
 
             Assert.IsFalse(result);
         }
